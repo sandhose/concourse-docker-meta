@@ -1,0 +1,53 @@
+#!/bin/zsh
+
+set -eufo pipefail
+
+if ! [ -v REPO ]; then
+  REPO=repo
+fi
+
+if [ -d "$REPO" ]; then
+  if ! [ -v VERSION_FILE ]; then
+    VERSION_FILE="$REPO/.git/ref"
+  fi
+
+  if ! [ -v COMMIT_FILE ]; then
+    COMMIT_FILE="$REPO/.git/short_ref"
+  fi
+fi
+
+if [ -v VERSION_FILE ] && [ -e "$VERSION_FILE" ]; then
+  VERSION="`cat $VERSION_FILE`"
+fi
+
+if [ -v COMMIT_FILE ] && [ -e "$COMMIT_FILE" ]; then
+  COMMIT="`cat $COMMIT_FILE`"
+fi
+
+[ -d "meta" ]
+
+echo "Build args:"
+tee meta/build-args <<EOF
+BUILD_DATE=`date -u +'%Y-%m-%dT%H:%M:%SZ'`
+COMMIT=$COMMIT
+VERSION=$VERSION
+EOF
+
+VERSION="${VERSION#*@}"
+VERSIONS="$VERSION"
+
+if echo "$VERSION" | grep -q '^v\?\d\+\(\.\d\+\)*$'; then
+  while true; do
+    LAST_VERSION="$VERSION"
+    VERSION="${VERSION%.*}"
+
+    if [ "$LAST_VERSION" = "$VERSION" ]; then
+      break
+    fi
+
+    VERSIONS="$VERSIONS $VERSION"
+  done
+fi
+
+echo -n "Tags: "
+echo "$VERSIONS" | tee meta/tags
